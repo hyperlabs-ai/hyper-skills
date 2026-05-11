@@ -217,6 +217,13 @@ orwel.form(form, {
 ```
 Wire up after the form element exists in the DOM (e.g. inside `onMount`/`useEffect`).
 
+**⚠ Do not combine `orwel.form()` with a manual `orwel.conversion()` on submit.** Pick one path:
+
+- **Manual conversion (recommended for lead forms / multi-step submits / Svelte/React/Vue with conditional rendering):** skip `orwel.form()` entirely. Call `orwel.identify()` + `orwel.conversion('...')` inside your submit handler, **before** flipping any state that unmounts the form. See the troubleshooting section below.
+- **Passive form analytics (informational forms, no custom submit logic):** use `orwel.form()` and let the SDK observe natively. Do not also call `orwel.conversion()` from the same submit — you'll double-track.
+
+In framework code with reactive bindings (Svelte `bind:value`, React controlled inputs), be aware that `orwel.form()` reads DOM attributes, not framework state. `fields_filled` may report `[]` even when inputs visibly contain values; rely on `fields_changed`/`fields_focused` instead if you keep `orwel.form()`.
+
 ### Section visibility (no JS needed)
 Add `data-orwel-section="hero-banner"` to any element. The SDK auto-tracks visibility duration, max % visible, word count, and clicks/scrolls.
 
@@ -242,6 +249,38 @@ orwel.init({
   debug: import.meta.env.DEV, // or process.env.NODE_ENV !== 'production'
 });
 ```
+
+## Troubleshooting
+
+### `form_abandon` fires on a successful submit (instead of `conversion`)
+
+Symptom: after a successful submit you see a `form_abandon` event in the Orwel dashboard with `abandon_reason: navigation`, `fields_filled: []`, and the conversion event is missing.
+
+Root cause: `orwel.form(form, { trackAbandon: true })` watches for the `<form>` element leaving the DOM and labels it as abandonment. In frameworks that render the success state by **replacing** the form (Svelte `{#if submitted}` / `{:else}`, React conditional render, Vue `v-if`), the form unmounts the moment you flip the success flag — the SDK can't tell that apart from real abandonment. Compounding this, `fields_filled` is empty because the SDK reads DOM attributes, not the framework's reactive state, so `bind:value`/controlled inputs don't register as "filled".
+
+Fix:
+
+1. **Remove `orwel.form()` from forms that have a custom submit handler with a conversion.** Track only what you need explicitly:
+   ```ts
+   async function handleSubmit(e: Event) {
+     e.preventDefault();
+     submitting = true;
+     await api.submit({ ... }); // your real submit
+
+     // Fire BEFORE the re-render that unmounts the form
+     orwel.identify({ email, name, phone });
+     orwel.conversion('quote_request', { email, source: 'landing_page', ... });
+
+     submitting = false;
+     submitted = true; // safe to unmount now
+   }
+   ```
+2. If you genuinely need both passive form analytics AND a manual conversion, keep `orwel.form()` but disable the conflicting flags: `trackAbandon: false, trackSubmit: false`. Otherwise the SDK's native submit listener and your manual `orwel.conversion()` will both fire.
+3. Never call `orwel.conversion()` after the state change that unmounts the form — the event can be dropped or mislabeled if the DOM is torn down mid-flush.
+
+### `fields_filled: []` even though the form had values
+
+Same DOM-vs-framework-state mismatch as above. The SDK inspects `input.value` / attributes at observation time; reactive frameworks may not reflect every keystroke back to the DOM attribute. If you need accurate field-fill telemetry, pass the values explicitly via `orwel.track('form_progress', { ... })` from your own handlers instead of relying on `orwel.form()`.
 
 ## Pre-flight checklist before declaring the install done
 
