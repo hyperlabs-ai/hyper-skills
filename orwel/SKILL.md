@@ -187,6 +187,13 @@ orwel.conversion('newsletter_signup', {
 ```
 Use snake_case codes. Common codes: `newsletter_signup`, `demo_request`, `contact_form`, `whitepaper_download`.
 
+**⚠ A lead conversion MUST carry an email or its notification email is silently dropped.** The backend only sends the lead-notification email to the workspace's `notification_emails` when it finds an email on the conversion — either in `properties` (`email`/`emailAddress`/`mail`/`userEmail`) or in the visitor's identity traits via a prior/simultaneous `orwel.identify({ email })`. Without one, the conversion is still recorded in the dashboard, but **no email is sent — even when a phone number or other contact info is present**. So every lead-capture form (contact forms, demo requests, **and WhatsApp/chat hand-off modals**) must collect an email and pass it in the conversion. The canonical pattern is to call both together:
+
+```ts
+orwel.conversion('whatsapp_lead', { email, name, phone, message });
+orwel.identify({ email, name, phone });
+```
+
 > Older code may use `orwel.lead(...)` — `conversion` is the current name; treat them as equivalent if you see both.
 
 ### session — per-session state
@@ -236,7 +243,7 @@ await orwel.flush(); // rarely needed; auto-flushes on page unload
 
 - `apiKey` must start with `orwel_` and be ≥20 chars.
 - Event codes: `^[a-z0-9_]{1,50}$`.
-- Emails inside `properties` are validated — pass valid addresses or omit the field.
+- Emails inside `properties` are validated — pass valid addresses or omit the field. Note: on **lead conversions**, omitting the email is not free — it suppresses the lead-notification email (see the `conversion` section above).
 - Required params throw with descriptive messages; surface them to the user instead of swallowing.
 
 ## Common autoMonitor + debug options
