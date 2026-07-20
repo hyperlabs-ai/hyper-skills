@@ -26,6 +26,7 @@ Conocimiento de producción de Hyperlabs empaquetado como skills reutilizables, 
 | `svelte-loading/` | Patrón | Carga de datos sin flicker en SvelteKit 2 + Svelte 5: `load` con promesas sin await (streaming), `{#await}` + skeletons, `depends`/`invalidate`, preload `hover`/`tap`, caché in-process con dedupe. Gotcha fatal: `each_key_duplicate` en Svelte 5. Repo **Orwel** = implementación de referencia. |
 | `hyper-whatsapp/` | Producto | Stack WhatsApp **hyper-wa** (recibir→guardar→responder): 3 capas (engine hyper-wa + proxy hyperflow-core + bandeja hyperflow-app), Twilio sandbox, validación de firma del webhook, tablas `wa_*`, ventana 24h. Gotchas fatales: firma vs `PUBLIC_BASE_URL` exacto (403 silencioso), `wa_numbers` sin sembrar = inbound dropeado, Auth Token desincronizado ("envío sí, recibo no"), API Key Restricted necesita `Messages:Create`, un número sandbox → un solo workspace. |
 | `webp-optimize-images/` | Patrón | Convertir/comprimir todas las imágenes raster (JPG/JPEG/PNG) de un workspace a **WebP** sin pérdida visible y con gran ahorro de peso. Script Node con `sharp` vía `npx` (sin instalar nada). Defaults: fotos lossy `q80 effort6`, gráficos/PNG con alpha near-lossless. No destructivo por defecto (dry-run primero); `--replace` borra originales y `--update-refs` reescribe referencias en el código. Anti-bloat: omite el WebP si saldría más grande que el original. Fallback a `cwebp`. |
+| `web-perf-seo/` | Patrón | Optimizar un sitio hasta **Lighthouse ≥90/100** en las 4 categorías (Performance, Accessibility, Best Practices, SEO) con un loop medido: **baseline → priorizar → arreglar → re-medir**. Motor `scripts/measure.mjs` unificado (Lighthouse local + PageSpeed Insights, mismo formato de reporte, con datos de campo CrUX). Playbook `references/fixes.md` mapea cada audit-id → fix con notas Vite/Next/SvelteKit; `references/seo-and-meta.md` cubre SEO on-page, meta/OG, JSON-LD, sitemap/robots. Delega la conversión de imágenes a `webp-optimize-images`. Regla clave: medir nunca adivinar; build de producción para Performance; ítems de servidor/CDN (TTFB, compresión, cache) se marcan como acciones de deploy, no se disfrazan de fix de código. Incluye el slash command **`/nitro`** (`commands/nitro.md`), con modo `/nitro all <url-live>` que optimiza el proyecto local **y** lo compara contra el sitio en producción. |
 
 ### Skills propuestos (placeholder, sin contenido aún)
 
@@ -46,6 +47,7 @@ hyper-skills/
 ├── svelte-loading/SKILL.md   # completo
 ├── hyper-whatsapp/SKILL.md   # completo
 ├── webp-optimize-images/     # completo (SKILL.md + scripts/)
+├── web-perf-seo/             # completo (SKILL.md + scripts/ + references/ + commands/nitro.md)
 ├── hyper-env/   *.txt         # propuesto
 ├── hyper-llm/   *.txt         # propuesto
 ├── hyper-core/  *.txt         # propuesto
