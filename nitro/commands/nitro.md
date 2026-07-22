@@ -1,9 +1,9 @@
 ---
-description: Optimize a site to Lighthouse ≥90 (perf + SEO) via web-perf-seo. Use "all <url>" to optimize the local project AND benchmark it against a live site.
+description: Optimize a site to Lighthouse ≥90 (perf + SEO) via nitro. Use "all <url>" to optimize the local project AND benchmark it against a live site.
 argument-hint: [url | local build url] OR "all <live-url>" to optimize local + compare vs live
 ---
 
-Invoke the **web-perf-seo** skill (use the Skill tool with `web-perf-seo`). Parse `$ARGUMENTS`
+Invoke the **nitro** skill (use the Skill tool with `nitro`). Parse `$ARGUMENTS`
 and pick the mode:
 
 ## Mode A — default (arg is empty or a single URL/path)

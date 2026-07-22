@@ -1,5 +1,5 @@
 ---
-name: web-perf-seo
+name: nitro
 description: Audit and optimize a website until Lighthouse scores are ≥90/100 across Performance, Accessibility, Best Practices, and SEO. Measures a baseline (Lighthouse local + PageSpeed Insights), prioritizes by impact, applies fixes (images, content/JS/CSS loading, Core Web Vitals, console bugs, on-page SEO), and re-measures in a loop. Use when the user wants to make a site fast, improve Lighthouse/PageSpeed scores, fix Core Web Vitals, or boost technical SEO. Triggers on "optimizar sitio", "mejorar el score", "que cargue rápido", "lighthouse 90", "pagespeed", "core web vitals", "SEO técnico", "optimize website", "improve performance".
 disable-model-invocation: false
 ---
@@ -11,7 +11,7 @@ Best Practices, SEO) through a measured loop: **baseline → prioritize → fix 
 repeating until the gate is met. Built for React/Svelte apps (Vite, Next.js, SvelteKit).
 
 `<SKILL_DIR>` below = the directory this skill is installed in (e.g.
-`~/.claude/skills/web-perf-seo`). A companion `/nitro` slash command lives in
+`~/.claude/skills/nitro`). A companion `/nitro` slash command lives in
 `commands/nitro.md` — install it to `~/.claude/commands/nitro.md` to run this skill as
 `/nitro` (or `/nitro all <live-url>` to optimize a local project and benchmark it vs a live site).
 

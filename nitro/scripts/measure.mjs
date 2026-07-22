@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * measure.mjs — Unified Lighthouse baseline for the web-perf-seo skill.
+ * measure.mjs — Unified Lighthouse baseline for the nitro skill.
  *
  * Two sources, one report shape (both return the same `lighthouseResult` object):
  *   - lighthouse : runs Lighthouse locally via `npx lighthouse` against any URL
