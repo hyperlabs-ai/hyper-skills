@@ -206,7 +206,7 @@ The SDK itself sends one automatic `identify` with browser traits only (no email
 ### conversion: lead capture
 Independent record with its own ID, enriched into a lead. Conversion codes are NOT gated by the catalog.
 
-> **Async since 1.6:** `conversion` returns `Promise<{ success: boolean; reason?: string }>`. It waits up to 5 s for the visitor id (if it never resolves, nothing is sent and `reason` is `'visitor_unresolved'`), adds a client `conversionId` (UUID) so retries are deduplicated server-side, attaches the persisted first/last-touch `attribution` (UTMs + ad click ids), flushes immediately, and resolves with the acknowledged result (`reason` can also be `'delivery_failed'` or `'error'`). In a submit handler, `await` it **before** flipping any state that unmounts the form.
+> **Async since 1.6:** `conversion` returns `Promise<{ success: boolean; reason?: string }>`. It waits up to 5 s for the visitor id (if it never resolves, nothing is sent and `reason` is `'visitor_unresolved'`), adds a client `conversionId` (UUID) so retries are deduplicated server-side, attaches the persisted first/last-touch `attribution` (UTMs + ad click ids), flushes immediately, and resolves with the acknowledged result (`reason` can also be `'delivery_failed'` or `'error'`). In a submit handler, **start** it before flipping any state that unmounts the form, but do not block the success UI on it: the request survives the unmount (it is a `keepalive` fetch and the queue lives in `localStorage`). Only a full page navigation in the same tab must wait for it.
 
 ```ts
 const { success, reason } = await orwel.conversion('newsletter_signup', {
@@ -226,7 +226,7 @@ await orwel.conversion('whatsapp_lead', { email, name, phone, message });
 
 **Value:** when a conversion has a monetary value, pass it as `{ amount, currency }` in the properties (`amount` numeric, `currency` an ISO code like `'MXN'`). It is stored with the lead, and payment signals (`amount`, `plan`, `order_id`, codes like `purchase`) move the visitor to the customer lifecycle stage.
 
-> Older code may call `orwel.lead(...)`. That method no longer exists: replace it with `await orwel.conversion(...)`.
+> Older code may call `orwel.lead(...)`. That method no longer exists: replace it with `orwel.conversion(...)`.
 
 ### Attribution (automatic)
 The SDK captures `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content`, `utm_id` and the ad click ids `gclid`, `gbraid`, `wbraid`, `fbclid`, `ttclid`, `msclkid`, `li_fat_id` (1.7.0+) from the landing URL (then hash query, then referrer), and keeps a first/last-touch object in `localStorage` (`__orwel_attribution`). No code needed. Recommend `utm_id={{campaign.id}}` on Meta ads and `utm_id={campaignid}` on Google so leads join campaign spend even after renames.
@@ -261,7 +261,7 @@ Wire up after the form element exists in the DOM (e.g. inside `onMount`/`useEffe
 
 **Do not combine `orwel.form()` with a manual `orwel.conversion()` on submit.** Pick one path:
 
-- **Manual conversion (recommended for lead forms / multi-step submits / Svelte/React/Vue with conditional rendering):** skip `orwel.form()` entirely. Call `orwel.identify()` + `await orwel.conversion('...')` inside your submit handler, **before** flipping any state that unmounts the form. See the troubleshooting section below.
+- **Manual conversion (recommended for lead forms / multi-step submits / Svelte/React/Vue with conditional rendering):** skip `orwel.form()` entirely. Call `orwel.identify()` + `orwel.conversion('...')` inside your submit handler, starting it **before** flipping any state that unmounts the form, and log its result when it resolves. See the troubleshooting section below.
 - **Passive form analytics (informational forms, no custom submit logic):** use `orwel.form()` and let the SDK observe natively. Do not also call `orwel.conversion()` from the same submit, or you'll double-track.
 
 In framework code with reactive bindings (Svelte `bind:value`, React controlled inputs), `orwel.form()` reads DOM attributes, not framework state. `fields_filled` may report `[]` even when inputs visibly contain values; rely on `fields_changed`/`fields_focused` instead if you keep `orwel.form()`.
@@ -293,7 +293,7 @@ Auto-capture (page views, clicks, scroll, sections) is free; **business events a
 Instrument at the **service/mutation layer, not scattered across components**: one call site per business action, where the action actually succeeds.
 
 - Put `orwel.track('code', {...})` immediately after the state change succeeds (after the API/DB call resolves), never optimistically before.
-- `orwel.conversion()` must be **awaited**, and fired **before** any state flip that unmounts the surrounding UI (see the form troubleshooting section).
+- `orwel.conversion()` is started **before** any state flip that unmounts the surrounding UI, and its promise is handled (log on failure). Do not make the user wait for it, and only await it before a same-tab page navigation.
 - Pass `{ amount, currency }` on revenue-bearing conversions.
 - Placement per framework follows the wrapper-module pattern from Phase 1: import `orwel` from the wrapper (`$lib/orwel`, `@/lib/orwel`, the Nuxt plugin provide) inside services/stores. In SvelteKit that's `src/lib/services/` or form actions' client callbacks; in Next.js, client-side mutation hooks or the success callbacks of server actions; in Vue/Nuxt, Pinia actions. Never call `track` from a server-only context: the SDK is a browser client and every method is a no-op on the server.
 - Add a guard against double-fire on retried mutations (only track on the first success).
@@ -369,7 +369,7 @@ Observed in the ingest debugger (Dev mode, dev-key traffic) and in cross-checks 
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `conversion_no_id` on every lead | Landing still on SDK 1.4.x | Upgrade to 1.7.1+ and `await` the conversion |
+| `conversion_no_id` on every lead | Landing still on SDK 1.4.x | Upgrade to 1.7.1+ (and deploy orwel-api PR #58, which stopped dropping `conversionId`) |
 | `identify_no_email` on every new visitor | The SDK's automatic identify (browser traits only) | Expected; ignore it. Only an app `identify()` without email is a real issue |
 | `Event not found: <code>` (HTTP 207) | Custom `track()` code never registered | Register it (Phase 4) or use a standard catalog code |
 | Orwel has leads, Ads shows 0 | GA4 event never fires (wrong selector, GTM trigger on a removed element, tag on another page) | Fire GA4 from the same helper as the Orwel conversion |
@@ -423,16 +423,17 @@ Fix:
      submitting = true;
      await api.submit({ ... }); // your real submit
 
-     // Fire BEFORE the re-render that unmounts the form
+     // Start it BEFORE the re-render that unmounts the form; don't make the user wait
      orwel.identify({ email, name, phone });
-     await orwel.conversion('quote_request', { email, source: 'landing_page' });
+     orwel.conversion('quote_request', { email, source: 'landing_page' })
+       .then(({ success, reason }) => { if (!success) console.warn('Orwel conversion not confirmed', reason) });
 
      submitting = false;
-     submitted = true; // safe to unmount now
+     submitted = true;
    }
    ```
 2. If you genuinely need both passive form analytics AND a manual conversion, keep `orwel.form()` but disable the conflicting flags: `trackAbandon: false, trackSubmit: false`.
-3. Never call `orwel.conversion()` after the state change that unmounts the form.
+3. Never call `orwel.conversion()` after the state change that unmounts the form, and never `window.location` away in the same tab before it resolves.
 
 ### `conversion()` resolves `{ success: false }`
 
@@ -456,7 +457,7 @@ Same DOM-vs-framework-state mismatch as above. If you need accurate field-fill t
 - [ ] A wrapper module reads the env var, guards against missing, and re-exports `orwel`.
 - [ ] `orwel.init({ apiKey })` is called exactly once, client-side, before any tracking call.
 - [ ] No `orwel_...` literal appears anywhere in committed source (except the public key in no-build HTML snippets), and no `orwel_sk_` key is in browser code.
-- [ ] Every custom `track()` code is registered (Phase 4); every lead `conversion()` is awaited and carries an email.
+- [ ] Every custom `track()` code is registered (Phase 4); every lead `conversion()` carries an email and its promise is handled without blocking the UI.
 - [ ] `identify()` is only called with an email.
 - [ ] On landings, every conversion goes through one helper that also fires GA4/Meta, once, on confirmed success, keeping the GA4 event names Ads already imports.
 - [ ] Dev mode shows no errors for the exercised actions.
