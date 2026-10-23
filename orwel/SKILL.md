@@ -354,6 +354,7 @@ export function contactClick(gaEvent: string, params: Record<string, unknown> = 
 Rules:
 
 - **Fire on confirmed success only.** After the backend answers 2xx, never on button click or before validation. A submit that fails validation must fire nothing.
+- **Never gate GA4/Meta or the UI on Orwel's result.** "Success" means the landing's own backend answered 2xx. `await orwel.conversion()` can resolve `delivery_failed` even though the server stored the lead: the SDK gives up on a batch after 10 s, and conversion processing has been observed to take ~16 s. Log a failed result; do not retry it (that creates a second conversion) and do not show the user an error.
 - **Exactly once per action.** No second listener (GTM trigger, `orwel.form()` with `trackSubmit`, an `onclick` plus an `onsubmit`) firing the same event. Duplicates inflate Ads conversions and corrupt Smart Bidding.
 - **GA4 event names are a contract with Google Ads.** Ads conversion actions import GA4 events by name. On an existing landing, keep the GA4 event names it already sends; renaming one silently zeroes the Ads conversion. On a new landing, use GA4 recommended names (`generate_lead` for forms, `contact` for WhatsApp/phone/email clicks).
 - **Orwel conversion codes are reporting history.** Keep existing codes on existing landings. On new landings use `contact_form` (lead form), `whatsapp_form` (WhatsApp hand-off modal that collects an email) and `quote_request` (quote form).
