@@ -199,7 +199,9 @@ orwel.identify({
 ```
 The visitor ID is resolved by the server from a browser fingerprint and persisted in `localStorage` under `__orwel_visitor__`. Browser/platform info is auto-merged; user-provided traits win on conflict. Without an email the visitor stays anonymous.
 
-**Only call `identify()` once you have an email.** An `identify()` without email adds nothing and raises `identify_no_email` on every page load; it was the most frequent production warning (hundreds per week on one workspace, from an `identify()` in a layout that ran for anonymous visitors). In apps with login, call it after authentication with the user's email; on landings, call it in the lead submit handler.
+**Only call `identify()` once you have an email.** An app `identify()` without email adds nothing and leaves the visitor anonymous. In apps with login, call it after authentication with the user's email; on landings, call it in the lead submit handler.
+
+The SDK itself sends one automatic `identify` with browser traits only (no email) the first time it resolves a visitor. That one is expected; Dev mode stops flagging it as `identify_no_email` once orwel-api PR #57 is deployed. Before that, every new visitor in local or e2e runs showed that warning, and it does not mean the app code is wrong.
 
 ### conversion: lead capture
 Independent record with its own ID, enriched into a lead. Conversion codes are NOT gated by the catalog.
@@ -362,12 +364,12 @@ Rules:
 
 ## Production lessons (do not repeat)
 
-Observed in the ingest debugger and in cross-checks of Orwel against Google Ads:
+Observed in the ingest debugger (Dev mode, dev-key traffic) and in cross-checks of Orwel conversions against Google Ads conversion actions:
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | `conversion_no_id` on every lead | Landing still on SDK 1.4.x | Upgrade to 1.7.1+ and `await` the conversion |
-| `identify_no_email` hundreds of times | `identify()` in a layout for anonymous visitors | Call it only with an email (see `identify`) |
+| `identify_no_email` on every new visitor | The SDK's automatic identify (browser traits only) | Expected; ignore it. Only an app `identify()` without email is a real issue |
 | `Event not found: <code>` (HTTP 207) | Custom `track()` code never registered | Register it (Phase 4) or use a standard catalog code |
 | Orwel has leads, Ads shows 0 | GA4 event never fires (wrong selector, GTM trigger on a removed element, tag on another page) | Fire GA4 from the same helper as the Orwel conversion |
 | Ads conversion rate of 25 to 60 % | Same event fired twice, or WhatsApp click counted many per click | One listener per action; ask for `ONE_PER_CLICK` in Ads |
