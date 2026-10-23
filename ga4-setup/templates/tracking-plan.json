@@ -1,0 +1,28 @@
+{
+  "property": "properties/000000000",
+  "measurement_id": "G-XXXXXXXXXX",
+  "landing_url": "https://example.com",
+  "events": [
+    {
+      "name": "generate_lead",
+      "trigger": "Respuesta 2xx del formulario principal",
+      "source": "src/lib/components/LeadForm.svelte",
+      "params": { "form_id": "hero_form" }
+    },
+    {
+      "name": "contact",
+      "trigger": "Click en el botón flotante de WhatsApp",
+      "source": "src/lib/components/WhatsAppButton.svelte",
+      "params": { "method": "whatsapp", "cta_location": "floating_button" }
+    }
+  ],
+  "key_events": [
+    { "event_name": "generate_lead", "counting_method": "ONCE_PER_EVENT" },
+    { "event_name": "contact", "counting_method": "ONCE_PER_EVENT" }
+  ],
+  "custom_dimensions": [
+    { "parameter_name": "form_id", "display_name": "Form ID", "scope": "EVENT" },
+    { "parameter_name": "cta_location", "display_name": "CTA location", "scope": "EVENT" }
+  ],
+  "event_create_rules": []
+}
