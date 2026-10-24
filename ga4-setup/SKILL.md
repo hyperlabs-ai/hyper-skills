@@ -178,7 +178,7 @@ Realtime takes a few seconds to a minute. If an event is missing after a couple 
 
 Standard reports and key event counts lag 24–48 h behind realtime. That is normal and not a failure.
 
-On production, verify with a headless browser that intercepts the landing's backend, Orwel, `google-analytics.com/g/collect`, `googleadservices.com` and `facebook.com/tr` (see the `orwel` skill, "Automated check without side effects"): one invalid submit fires nothing, one valid submit fires each tool exactly once.
+On production, verify with a headless browser that intercepts the landing's backend, Orwel, `google-analytics.com/g/collect` and `googleadservices.com`, and records `fbq` calls for Meta (see the `orwel` skill, "Automated check without side effects"): one invalid submit fires nothing, one valid submit fires each tool exactly once.
 
 ### 8. Report
 

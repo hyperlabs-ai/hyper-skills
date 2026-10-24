@@ -323,7 +323,8 @@ Journey funnels count steps in any order within the period, so build them from m
 When verifying with a headless browser, never let a test submit reach the landing's real backend (it emails the client, creates CRM leads, or triggers WhatsApp messages) or the production GA4/Meta pixel (it pollutes the client's data and Ads bidding). Intercept instead:
 
 - Route the form's own endpoint (API route, Formspree, Resend, webhook) to a fake `200` response.
-- Route `google-analytics.com/g/collect` and `facebook.com/tr` to an abort, but **record** them: assert the request was attempted with the expected `en=<event>` (GA4) or `ev=<Event>` (Meta), exactly once per action.
+- Route `google-analytics.com/g/collect` and `googleadservices.com` to an abort, but **record** them: assert the request was attempted with the expected `en=<event>` (GA4) or conversion label (Ads), exactly once per action.
+- The Meta pixel sends nothing from an automated browser, so there is no `facebook.com/tr` request to catch. Record `fbq` calls instead (see the `pixel` skill, Step 5).
 - Let only the Orwel requests through, and only with the **development key**. Then confirm in `ingest_debug_logs` / Dev mode that the conversion arrived with `status = ok`, a `conversionId`, the email, and `is_test`.
 
 Use a recognizable test email (`qa+orwel@<agency-domain>`), so test rows are easy to find.
