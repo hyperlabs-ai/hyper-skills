@@ -120,7 +120,7 @@ Do not add all of these reflexively. Meta's Aggregated Event Measurement only pr
 
 ## Step 5 — Verify
 
-On production, check it yourself with a headless browser that intercepts `facebook.com/tr` (and the landing's backend, so no real lead is created; see the `orwel` skill, "Automated check without side effects"). Read the `id` and `ev` parameters of each request: the `id` must be this client's pixel, an invalid submit must send no `Lead`, and a valid submit exactly one.
+On production, check it yourself with a headless browser (intercept the landing's backend so no real lead is created; see the `orwel` skill, "Automated check without side effects"). The pixel detects automated browsers and never sends `facebook.com/tr` requests there, so do not wait for network hits. Instead, from an init script, wrap `window.fbq` to record each call and read `fbq.getState().pixels` for the loaded IDs; expose a binding so the record survives a redirect to a thank-you page. Expect: the pixel ID is this client's, an invalid submit records no `Lead`, a valid submit records exactly one.
 
 Then tell the user to confirm events are firing before trusting them in Ads Manager:
 
