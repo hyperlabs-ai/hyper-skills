@@ -6,7 +6,7 @@ disable-model-invocation: false
 
 # Orwel SDK
 
-Install and use the Orwel analytics SDK (`orwel` on npm, current target `^1.7.1`) in any frontend project. Orwel is a singleton: one instance per app, initialized once, imported anywhere.
+Install and use the Orwel analytics SDK (`orwel` on npm, current target `^1.7.2`) in any frontend project. Orwel is a singleton: one instance per app, initialized once, imported anywhere.
 
 A full engagement has five phases. **Phase 1, Install** is Steps 1 to 4 below. Then continue with **Phase 2, Propose the event catalog**, **Phase 3, Instrument the service layer**, **Phase 4, Register custom codes**, and **Phase 5, Verify** (sections after the install steps). If the user only asked for the install, stop after Phase 1 and offer the rest.
 
@@ -54,7 +54,7 @@ npm install orwel@latest
 # or: pnpm add orwel@latest
 ```
 
-Verify the version landed in `package.json` under `dependencies` (not `devDependencies`) and that it resolves to `1.7.1` or newer (`npm ls orwel`). If the registry resolves an older version (1.4.x), tell the user: `conversion()` is not async there, there are no click ids, and flushes above 100 events are lost. Do not silently write code that relies on 1.6+ behavior against an older install.
+Verify the version landed in `package.json` under `dependencies` (not `devDependencies`) and that it resolves to `1.7.2` or newer (`npm ls orwel`). 1.7.1 still loses conversions sent while telemetry is queued; upgrade it. If the registry resolves an older version (1.4.x), tell the user: `conversion()` is not async there, there are no click ids, and flushes above 100 events are lost. Do not silently write code that relies on 1.6+ behavior against an older install.
 
 ## Step 2: Create the wrapper module
 
@@ -369,7 +369,7 @@ Observed in the ingest debugger (Dev mode, dev-key traffic) and in cross-checks 
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `conversion_no_id` on every lead | Landing still on SDK 1.4.x | Upgrade to 1.7.1+ (and deploy orwel-api PR #58, which stopped dropping `conversionId`) |
+| `conversion_no_id` on every lead | Landing still on SDK 1.4.x | Upgrade to 1.7.2+ (and deploy orwel-api PR #58, which stopped dropping `conversionId`) |
 | `identify_no_email` on every new visitor | The SDK's automatic identify (browser traits only) | Expected; ignore it. Only an app `identify()` without email is a real issue |
 | `Event not found: <code>` (HTTP 207) | Custom `track()` code never registered | Register it (Phase 4) or use a standard catalog code |
 | Orwel has leads, Ads shows 0 | GA4 event never fires (wrong selector, GTM trigger on a removed element, tag on another page) | Fire GA4 from the same helper as the Orwel conversion |
@@ -450,7 +450,7 @@ Same DOM-vs-framework-state mismatch as above. If you need accurate field-fill t
 
 ## Pre-flight checklist before declaring the install done
 
-- [ ] `orwel` is in `dependencies` in `package.json` and resolves to 1.7.1 or newer.
+- [ ] `orwel` is in `dependencies` in `package.json` and resolves to 1.7.2 or newer.
 - [ ] `.env` contains the framework-correct public env var (dev key locally, public key in production).
 - [ ] `.env.example` has a placeholder line for the same var.
 - [ ] `.env` is gitignored.
