@@ -1,6 +1,6 @@
 ---
 name: ga4-setup
-description: Set up Google Analytics 4 conversion tracking on a landing page end to end — read the landing, propose a tracking plan, instrument gtag events in code, register key events / custom dimensions / event-create rules in GA4 through the ops-hyper MCP, and verify with realtime data. Use when the user wants to configure GA4, Google Analytics conversions or key events for a landing or site, create conversion events automatically, or check that GA4 events are arriving. Triggers on "configura GA4", "Google Analytics en la landing", "eventos de conversión", "key events", "generate_lead", "measurement ID", "G-XXXX", "ga_setup_tracking", "tracking-plan.json".
+description: Set up Google Analytics 4 conversion tracking on a landing page end to end — read the landing, propose a tracking plan, instrument gtag events in code, register key events / custom dimensions / event-create rules in GA4 through the ops-hyper MCP, and verify with realtime data. Use when the user wants to configure GA4, Google Analytics conversions or key events for a landing or site, create conversion events automatically, check that GA4 events are arriving, or fix how Google Ads counts the landing's leads (primary/secondary, "Una" counting, duplicated GA4 rules). Triggers on "configura GA4", "Google Analytics en la landing", "eventos de conversión", "key events", "generate_lead", "measurement ID", "G-XXXX", "ga_setup_tracking", "tracking-plan.json", "conversiones de Ads", "recuento Una", "acción principal".
 disable-model-invocation: false
 ---
 
@@ -29,7 +29,11 @@ Ask the Ops admin for the key. In claude.ai the same server is available as the 
 | `ga_tracking_config` | No | Current streams, measurement ID, key events, dimensions, rules |
 | `ga_create_property` | Yes | New property + web stream, returns `G-XXXX` |
 | `ga_setup_tracking` | Yes | Key events, custom dimensions, event-create rules (idempotent, never deletes) |
+| `ga_delete_event_create_rule` | Yes | Delete an event-create rule; refuses anything but a self-copy unless `force` |
 | `ga_realtime_events` | No | Verify events are arriving |
+| `gads_get_conversion_actions` | No | Ads conversion actions of the client's account: type, counting, primary/secondary |
+| `gads_create_conversion_action` | Yes | New Ads web conversion (`AW-` tag), when the landing reports to Ads directly |
+| `gads_update_conversion_action` | Yes | Primary/secondary, counting (`ONE_PER_CLICK`), status, name |
 
 Write tools default to `dry_run: true`. Always run the dry run, show the result, and only then call again with `dry_run: false`.
 
@@ -130,7 +134,7 @@ When a form cannot be edited (third-party embed with a redirect), skip code and 
 
 ### 5. Apply the GA4 configuration
 
-1. `ga_tracking_config` — confirm current state.
+1. `ga_tracking_config` — confirm current state. It flags event-create rules whose destination equals their source event (`form_submit` → `form_submit`). Each one duplicates every hit of that event, and Ads imports both. Delete them with `ga_delete_event_create_rule` (dry run first). The original event keeps its name, so the Ads import is not affected.
 2. `ga_setup_tracking` with the plan's `key_events`, `custom_dimensions` and `event_create_rules`, `dry_run: true`. Show the table.
 3. Same call with `dry_run: false`. Report created / existing / failed.
 
@@ -148,7 +152,17 @@ Event-create rule for a thank-you page (no code):
 
 Key events can be registered before the event has ever been received. Do not wait for traffic.
 
-### 6. Verify
+### 6. Google Ads conversions
+
+Every lead action in Ads must count the real lead once. Check with `gads_get_conversion_actions` and fix:
+
+- **Counting `ONE_PER_CLICK`** for lead actions (forms, WhatsApp, calls); `MANY_PER_CLICK` is for purchases only. On `AW-` (WEBPAGE) actions use `gads_update_conversion_action`. On actions imported from GA4 the API refuses the change: tell the user to set "Una" in the Ads console (Objetivos → Conversiones → the action → Recuento).
+- **One primary action per real lead.** If two actions measure the same submit (an event and a GA4 rule built from it, `generate_lead` plus the form event), set one to secondary with `primary_for_goal: false`.
+- **Each campaign bids on its own leads.** When two brands share an Ads account, give each campaign a custom conversion goal with its own action; account-wide goals make one brand optimize to the other's leads.
+- **The campaign's goals must include the action's category.** A primary `SUBMIT_LEAD_FORM` action does not count for a campaign whose goals are only `PURCHASE`.
+- Dropping a duplicate or switching to `ONE_PER_CLICK` lowers the reported conversions to the real number. Say so in the report so nobody reads it as a drop in leads; Smart Bidding readjusts in 1 to 2 weeks.
+
+### 7. Verify
 
 Trigger each event on the running landing (local dev with the env var set, or the preview/prod URL), then:
 
@@ -164,13 +178,17 @@ Realtime takes a few seconds to a minute. If an event is missing after a couple 
 
 Standard reports and key event counts lag 24–48 h behind realtime. That is normal and not a failure.
 
-### 7. Report
+On production, verify with a headless browser that intercepts the landing's backend, Orwel, `google-analytics.com/g/collect`, `googleadservices.com` and `facebook.com/tr` (see the `orwel` skill, "Automated check without side effects"): one invalid submit fires nothing, one valid submit fires each tool exactly once.
+
+### 8. Report
 
 Tell the user: property and measurement ID, events instrumented (file and line), key events registered, what realtime confirmed, and anything left manual.
 
 ## Out of scope (do manually, say so)
 
 - **Google Ads import**: linking GA4 to Ads and importing key events as Ads conversions is done in the GA4 / Ads UI.
-- **Deleting or editing** existing key events, dimensions or rules. The tools only create.
+- **Counting of GA4-imported Ads actions** and Universal Analytics goals: the API cannot change them; console only.
+- **Deleting or editing** key events and dimensions, and deleting event-create rules that are not self-copies. The tools only create, plus `ga_delete_event_create_rule` for self-copies.
+- **Properties the Ops token cannot see.** If `ga_tracking_config` returns 403, the property has not granted the Ops Google account access; ask for Editor access on that property.
 - **GTM containers**. If the site is GTM-only, propose moving the events into code or ask before touching the container.
 - **Consent banners / Consent Mode**. Flag it if the landing targets the EU.
