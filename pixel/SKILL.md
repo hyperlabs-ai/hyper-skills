@@ -13,7 +13,9 @@ Install the Meta Pixel base code once per project, then wire it into every conve
 
 ## Step 1 — Get the Pixel ID
 
-Ask the user for the Meta Pixel ID if it isn't already provided in the conversation (it's the numeric ID, e.g. `1521189519117109`, found in Meta Events Manager). If the codebase already has a Pixel snippet installed with an ID, reuse that ID — don't ask again, don't introduce a second pixel.
+Ask the user for the Meta Pixel ID if it isn't already provided in the conversation (a 15–16 digit number, e.g. `123456789012345`, found in the client's Meta Business → Events Manager → Data sources → the pixel). If the codebase already has a Pixel snippet installed with an ID, reuse that ID — don't ask again, don't introduce a second pixel.
+
+**Each client has its own pixel.** Never copy an ID from another landing, an example or this skill: a copied ID sends one client's leads to another client's pixel and both campaigns optimize on the wrong data. Before using an ID, confirm it belongs to this client (the user, or the client's Events Manager). If you have other landings at hand, check that no other client's site uses the same ID.
 
 The Pixel ID is not a secret (it's visible in every page's source/network requests), so hardcoding it directly in the base snippet is acceptable and is the common pattern. Only pull it from an env var if the project already manages similar public IDs that way (e.g. it already does this for GA4's Measurement ID) — match the existing convention, don't invent a new one.
 
@@ -77,7 +79,7 @@ This is the part that requires actually reading the codebase, not just pasting a
 
 1. Search for every `<form>` element and its submit handler (`on:submit`, `onSubmit`, plain `action=`/`method=` forms, etc).
 2. Also search for "form-like" conversions that aren't a literal HTML form but still collect intent and hand off to an external channel — e.g. a modal that collects name/phone/message and then opens a `wa.me` WhatsApp link, a "book a call" button that opens Calendly, a newsletter signup. Treat the point where the user's data/intent is actually submitted as the Lead trigger.
-3. For each one, add a single line right next to any existing analytics call (gtag, GTM dataLayer.push, etc) inside the submit handler — don't replace existing analytics, add alongside it:
+3. For each one, add a single line right next to any existing analytics call (gtag, GTM dataLayer.push, etc) inside the submit handler — don't replace existing analytics, add alongside it. If the landing also uses Orwel or GA4, fire `Lead` from the same success helper as the Orwel conversion and the GA4 event (see the `orwel` skill, "Landing pages: one success point"), so every tool counts the same leads:
 
 ```js
 fbq('track', 'Lead', { content_name: '<project-slug>-cotizacion' });
@@ -92,6 +94,8 @@ if (typeof fbq !== 'undefined') fbq('track', 'Lead', { content_name: '<project-s
 Put the guarded Pixel call so it can't block the handoff — either after the `window.open`/redirect line, or wrapped as above. Match whatever error-handling the surrounding handler already uses (e.g. if it's inside a `try/catch`, a bare call is already safe).
 
 Use one consistent `content_name` per project (derive it from the project/client name, kebab-case, e.g. `transportes-bac-cotizacion`), the same value across every form in that project, unless the user asks to distinguish forms from each other (in which case make `content_name` per-form, e.g. `transportes-bac-cotizacion-hero` vs `transportes-bac-cotizacion-whatsapp`).
+
+   **Fire `Lead` only on confirmed success, exactly once.** If the form posts to a backend, fire it when the response is 2xx, never on the button click or before validation: an invalid or failed submit is not a lead. One call per action: no second listener (an `onclick` plus an `onsubmit`, a GTM trigger, a codeless event) firing the same `Lead`.
 
 4. A button that merely **opens** a form/modal (no data submitted yet) is not a Lead — don't fire Lead there. If the user wants that lighter intent signal tracked too, that's what `Contact` is for (see below), not `Lead`.
 
@@ -116,7 +120,9 @@ Do not add all of these reflexively. Meta's Aggregated Event Measurement only pr
 
 ## Step 5 — Verify
 
-Tell the user to confirm events are firing before trusting them in Ads Manager:
+On production, check it yourself with a headless browser that intercepts `facebook.com/tr` (and the landing's backend, so no real lead is created; see the `orwel` skill, "Automated check without side effects"). Read the `id` and `ev` parameters of each request: the `id` must be this client's pixel, an invalid submit must send no `Lead`, and a valid submit exactly one.
+
+Then tell the user to confirm events are firing before trusting them in Ads Manager:
 
 1. Install the **Meta Pixel Helper** Chrome extension — it shows which events fire on the current page in real time.
 2. Meta Events Manager → the pixel → **Test Events** tab — walk through each form/button on the live or staging site and confirm `PageView`, `Lead`, and any other configured events show up with the right parameters.
